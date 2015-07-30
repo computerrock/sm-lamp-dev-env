@@ -1,0 +1,62 @@
+---
+# Retrieve the current hostname, because {{ ansible_hostname }} still contains the old name
+- shell: hostname
+  register: current_hostname
+
+- name: Install MySQL Packages
+  sudo: yes
+  apt: pkg={{ item }} state=latest
+  with_items:
+    - mysql-server
+    - mysql-client
+    - python-mysqldb
+
+- name: Update root password for all root accounts
+  sudo: yes
+  mysql_user:
+    name: root
+    password: "{{  mysql.root_password }}"
+    host: "{{ item }}"
+    priv: "*.*:ALL,GRANT"
+    check_implicit_admin: yes
+    login_host: localhost
+    login_user: root
+    login_password: "{{  mysql.root_password }}"
+    state: present
+  with_items:
+    - "{{ current_hostname.stdout | lower }}"
+    - "%"
+    - 127.0.0.1
+    - ::1
+    - localhost
+  ignore_errors: yes
+
+- name: Create .my.cnf file with root password credentials
+  sudo: yes
+  template: src=root/.my.cnf dest=/root/.my.cnf owner=root mode=0600
+  notify: restart mysql
+
+- name: Create databases
+  mysql_db: name={{ item.database }} state=present login_user=root login_password={{ mysql.root_password }}
+  with_items: mysql.databases
+
+- name: Import dumps
+  mysql_db: name={{ item.database }} state=import login_user=root login_password={{ mysql.root_password }} target=/vagrant/ansible/databases/{{ item.dump }}
+  when: item.dump
+  with_items: mysql.databases
+
+- name: Ensure anonymous users are not in the database
+  mysql_user: name='' host={{ item }} state=absent login_user=root login_password={{ mysql.root_password }}
+  with_items:
+    - localhost
+    - "{{ current_hostname.stdout | lower }}"
+
+- name: Create users
+  mysql_user: name={{ item.0.user }} password={{ item.0.password }} host="%" priv={{ item.1 }}.*:ALL append_privs=yes state=present login_user=root login_password={{ mysql.root_password }}
+  with_subelements:
+    - mysql.users
+    - databases
+
+- name: Enable remote access
+  lineinfile: "dest=/etc/mysql/my.cnf regexp='bind-address' line='# bind-address = 127.0.0.1'"
+  notify: restart mysql

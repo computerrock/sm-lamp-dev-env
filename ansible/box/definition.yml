@@ -1,0 +1,40 @@
+---
+vagrant_local:
+  install: '1'
+  vm:
+    base_box: 'ubuntu/trusty64'
+    hostname: 'sm-dev'    # SETUP: Choose unique name according to project name
+    ip: 192.168.10.2      # SETUP: Select IP address for private network (should be same as in ansible/inventories/dev file)
+    memory: '2048'
+    sharedfolder: ./
+    enableWindows: '1'
+    useVagrantCloud: '1'
+    syncType: '0'
+server:
+  install: '1'
+  packages: [git]
+  timezone: UTC
+  locale: en_US.UTF-8
+apache:
+  install: '1'
+  # SETUP: here you can setup vhosts
+  sites:
+    - {name: default, docroot: /var/www/, servername: 'sm-dev.dev '}
+    - {name: sm-test, docroot: /var/www/sm-test/, servername: 'sm-test.dev '}
+mysql:
+  install: '1'
+  root_password: 'spoiledmilk'
+  # SETUP: here you can setup databases
+  # dumps are imported from 'ansible/databases' directory. If field is empty, it will be ignored.
+  databases:
+    - {database: sm-test, dump: ''}
+  # SETUP: here you can setup database users
+  users:
+    - user: developer
+      password: 'spoiledmilk'
+      databases:
+        - sm-test
+php:
+  install: '1'
+  ppa: php5-5.6
+  packages: [php5-cli, php5-intl, php5-mcrypt, php5-mysql]

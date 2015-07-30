@@ -1,0 +1,5 @@
+- name: Download Symfony 2 installer
+  shell: sudo curl -LsS http://symfony.com/installer -o /usr/local/bin/symfony
+
+- name: Set chmod for Symfony 2 installer
+  shell: sudo chmod a+x /usr/local/bin/symfony

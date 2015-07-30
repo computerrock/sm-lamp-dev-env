@@ -1,0 +1,39 @@
+---
+- name: Install Apache
+  sudo: yes
+  apt: pkg=apache2 state=latest
+
+- name: Install Apache Modules
+  apache2_module: state=present name={{ item }}
+  notify: restart apache
+  with_items:
+    - rewrite
+    - vhost_alias
+    - headers
+    - expires
+    - filter
+
+- shell: apache2 -v
+  register: apache_version
+
+- name: Set vhosts for apache2.4 sites
+  sudo: yes
+  template: src=vhost24.conf.tpl dest=/etc/apache2/sites-available/000-{{ item.name }}.conf
+  with_items: apache.sites
+  notify: restart apache
+  when: apache_version.stdout.find('Apache/2.4.') != -1
+
+- name: Set vhosts for apache2.2 sites
+  sudo: yes
+  template: src=vhost22.conf.tpl dest=/etc/apache2/sites-available/{{ item.name }}
+  with_items: apache.sites
+  notify: restart apache
+  when: apache_version.stdout.find('Apache/2.2.') != -1
+
+- name: Enable vhosts
+  sudo: yes
+  command: a2ensite 000-{{ item.name }}
+  args:
+    creates: /etc/apache2/sites-enabled/000-{{ item.name }}.conf
+  with_items: apache.sites
+  notify: restart apache
